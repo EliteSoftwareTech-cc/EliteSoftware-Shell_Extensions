@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="..\ICON_FOR_WIM_MERGE_AND_INSTALLER.ico" Link="app.ico">
+      <LogicalName>WIM_MERGE_ENGINE.app.ico</LogicalName>
+    </EmbeddedResource>
+  </ItemGroup>
+</Project>

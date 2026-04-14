@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="WIM_MERGE_APP/WIM_MERGE_APP.csproj" />
+  <Project Path="WIM_MERGE_ENGINE/WIM_MERGE_ENGINE.csproj" />
+</Solution>

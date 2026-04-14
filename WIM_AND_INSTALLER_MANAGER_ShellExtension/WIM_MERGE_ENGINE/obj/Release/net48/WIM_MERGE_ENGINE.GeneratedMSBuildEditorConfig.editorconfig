@@ -1,0 +1,8 @@
+is_global = true
+build_property.RootNamespace = WIM_MERGE_ENGINE
+build_property.ProjectDir = Z:\WIM_AND_INSTALLER_MANAGER\WIM_MERGE_ENGINE\
+build_property.EnableComHosting = 
+build_property.EnableGeneratedComInterfaceComImportInterop = 
+build_property.CsWinRTUseWindowsUIXamlProjections = false
+build_property.EffectiveAnalysisLevelStyle = 
+build_property.EnableCodeStyleSeverity = 
