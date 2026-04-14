@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net48</TargetFramework>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
+    <ApplicationIcon>..\MetadataEditor.ico</ApplicationIcon>
+
+    <!-- Professional Branding -->
+    <Company>EliteSoftwareTech Co.</Company>
+    <Authors>Zachary Whiteman</Authors>
+    <Copyright>© 2026 EliteSoftwareTech Co. (April 2026)</Copyright>
+    <Product>MetadataEditor</Product>
+    <Description>Bringing 2006 to 2026 one line of code at a time.</Description>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Reference Include="Microsoft.VisualBasic" />
+    <ProjectReference Include="..\METADATA_EDITOR_ENGINE\METADATA_EDITOR_ENGINE.csproj" />
+  </ItemGroup>
+
+</Project>
+
+
+

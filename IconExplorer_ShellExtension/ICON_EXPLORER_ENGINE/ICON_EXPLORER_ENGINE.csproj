@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
+    
+    <!-- Professional Branding -->
+    <Company>EliteSoftwareTech Co.</Company>
+    <Authors>Zachary Whiteman</Authors>
+    <Copyright>© 2026 EliteSoftwareTech Co. (April 2026)</Copyright>
+    <Product>IconExplorer Engine</Product>
+    <Description>High-fidelity icon extraction engine. Bringing 2006 to 2026 one line of code at a time.</Description>
+  </PropertyGroup>
+
+</Project>

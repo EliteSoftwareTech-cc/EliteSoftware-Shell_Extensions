@@ -1,0 +1,309 @@
+        private void MainForm_Load(object sender, EventArgs e)
+        {
+            SetWindowTheme(iconList.Handle, "Explorer", null);
+
+            if (!string.IsNullOrEmpty(initialFilePath))
+            {
+                pathBox.Text = initialFilePath;
+            }
+
+            if (File.Exists(pathBox.Text))
+            {
+                StartAsyncLoad(pathBox.Text);
+            }
+        }
+
+        private void BrowseBtn_Click(object sender, EventArgs e)
+        {
+            using (OpenFileDialog ofd = new OpenFileDialog())
+            {
+                ofd.Filter = "Executable & Libraries|*.exe;*.dll;*.ocx;*.cpl;*.icl;*.ico|All Files|*.*";
+                if (ofd.ShowDialog() == DialogResult.OK)
+                {
+                    pathBox.Text = ofd.FileName;
+                    StartAsyncLoad(ofd.FileName);
+                }
+            }
+        }
+
+        private void PathBox_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.KeyCode == Keys.Enter)
+            {
+                StartAsyncLoad(pathBox.Text);
+                e.Handled = true;
+                e.SuppressKeyPress = true;
+            }
+        }
+
+        private void MultiSelectBtn_Click(object sender, EventArgs e)
+        {
+            multiMode = !multiMode;
+            if (multiMode)
+            {
+                multiSelectBtn.Text = "Multi-Select: ON";
+                iconList.CheckBoxes = true;
+                iconList.MultiSelect = true;
+            }
+            else
+            {
+                multiSelectBtn.Text = "Multi-Select: OFF";
+                iconList.CheckBoxes = false;
+                iconList.MultiSelect = false;
+            }
+        }
+
+        private void ToggleBtn_Click(object sender, EventArgs e)
+        {
+            showIDs = !showIDs;
+            iconList.BeginUpdate();
+            for (int i = 0; i < iconList.Items.Count; i++)
+            {
+                iconList.Items[i].Text = showIDs ? $"ID: {i}" : "";
+            }
+            iconList.EndUpdate();
+        }
+
+        private void IconList_MouseWheel(object sender, MouseEventArgs e)
+        {
+            if (ModifierKeys == Keys.Control)
+            {
+                int newSize = imageList.ImageSize.Width + (e.Delta / 10);
+                if (newSize >= 16 && newSize <= 256)
+                {
+                    targetZoomSize = newSize;
+                    zoomTimer.Stop();
+                    zoomTimer.Start();
+                }
+            }
+        }
+
+        private void RestoreSizeBtn_Click(object sender, EventArgs e)
+        {
+            targetZoomSize = 64;
+            zoomTimer.Stop();
+            zoomTimer.Start();
+        }
+
+        private void ZoomTimer_Tick(object sender, EventArgs e)
+        {
+            zoomTimer.Stop();
+            bool wasLoading = asyncTimer.Enabled;
+            if (wasLoading) asyncTimer.Stop();
+
+            this.Cursor = Cursors.WaitCursor;
+            iconList.BeginUpdate();
+
+            imageList.ImageSize = new Size(targetZoomSize, targetZoomSize);
+            foreach (var img in imageCache)
+            {
+                imageList.Images.Add(img);
+            }
+
+            iconList.EndUpdate();
+            this.Cursor = Cursors.Default;
+
+            if (wasLoading) asyncTimer.Start();
+        }
+
+        private class IconMeta
+        {
+            public string SourceFile { get; set; }
+            public int Index { get; set; }
+        }
+
+        private void StartAsyncLoad(string filePath)
+        {
+            if (!File.Exists(filePath)) return;
+
+            asyncTimer.Stop();
+            this.Text = "Icon Viewer - Calculating...";
+
+            foreach (var img in imageCache) img.Dispose();
+            imageCache.Clear();
+            iconList.Items.Clear();
+            imageList.Images.Clear();
+
+            targetFile = filePath;
+            totalIcons = EliteIconExtractor.PrivateExtractIconsW(filePath, 0, 0, 0, null, null, 0, 0);
+            extractIndex = 0;
+
+            if (totalIcons > 0)
+                asyncTimer.Start();
+            else
+                this.Text = "Icon Viewer";
+        }
+
+        private void AsyncTimer_Tick(object sender, EventArgs e)
+        {
+            asyncTimer.Stop();
+            int chunkSize = 50;
+            int endIndex = Math.Min(extractIndex + chunkSize, (int)totalIcons);
+            int countToExtract = endIndex - extractIndex;
+
+            if (countToExtract <= 0)
+            {
+                this.Text = "Icon Viewer";
+                return;
+            }
+
+            IntPtr[] phicon = new IntPtr[countToExtract];
+            IntPtr[] piconid = new IntPtr[countToExtract];
+            EliteIconExtractor.PrivateExtractIconsW(targetFile, extractIndex, 256, 256, phicon, piconid, (uint)countToExtract, 0);
+
+            iconList.BeginUpdate();
+            for (int i = 0; i < countToExtract; i++)
+            {
+                if (phicon[i] != IntPtr.Zero)
+                {
+                    int actualIndex = extractIndex + i;
+                    using (Icon ico = Icon.FromHandle(phicon[i]))
+                    {
+                        Bitmap bmp = ico.ToBitmap();
+                        imageCache.Add(bmp);
+                        imageList.Images.Add(bmp);
+
+                        string itemText = showIDs ? $"ID: {actualIndex}" : "";
+                        var item = new ListViewItem(itemText, actualIndex);
+                        item.Tag = new IconMeta { SourceFile = targetFile, Index = actualIndex };
+                        iconList.Items.Add(item);
+
+                        if (actualIndex == 0)
+                        {
+                            if (this.Icon != null) this.Icon.Dispose();
+                            this.Icon = Icon.FromHandle(phicon[i]);
+                        }
+                        else
+                        {
+                            EliteIconExtractor.DestroyIcon(phicon[i]);
+                        }
+                    }
+                }
+            }
+            iconList.EndUpdate();
+
+            extractIndex = endIndex;
+
+            if (extractIndex < totalIcons)
+            {
+                this.Text = $"Icon Viewer - Loading... ({extractIndex} / {totalIcons})";
+                asyncTimer.Start();
+            }
+            else
+            {
+                this.Text = "Icon Viewer";
+            }
+        }
+
+        private string ExtractSingleIconToTemp(string sourceFile, int index)
+        {
+            string safeName = Path.GetFileName(sourceFile).Replace(".", "_");
+            string targetFile = Path.Combine(tempDir, $"{safeName}_IconGroup_{index}.ico");
+
+            if (!File.Exists(targetFile))
+            {
+                EliteIconExtractor.SaveFullIconGroup(sourceFile, index, targetFile);
+            }
+            return targetFile;
+        }
+
+        private void IconList_DoubleClick(object sender, EventArgs e)
+        {
+            if (iconList.SelectedItems.Count > 0)
+            {
+                var meta = (IconMeta)iconList.SelectedItems[0].Tag;
+                if (isPickMode)
+                {
+                    Console.WriteLine($"{meta.SourceFile},{meta.Index}");
+                    Environment.Exit(0);
+                }
+                else
+                {
+                    string physFile = ExtractSingleIconToTemp(meta.SourceFile, meta.Index);
+                    if (!string.IsNullOrEmpty(physFile) && File.Exists(physFile))
+                    {
+                        Process.Start(new ProcessStartInfo(physFile) { UseShellExecute = true });
+                    }
+                }
+            }
+        }
+
+        private void OkBtn_Click(object sender, EventArgs e)
+        {
+            if (isPickMode && iconList.SelectedItems.Count > 0)
+            {
+                var meta = (IconMeta)iconList.SelectedItems[0].Tag;
+                Console.WriteLine($"{meta.SourceFile},{meta.Index}");
+                Environment.Exit(0);
+            }
+            else
+            {
+                this.Close();
+            }
+        }
+
+        private void IconList_MouseClick(object sender, MouseEventArgs e)
+        {
+            if (e.Button == MouseButtons.Right && iconList.SelectedItems.Count > 0 && !isPickMode)
+            {
+                var meta = (IconMeta)iconList.SelectedItems[0].Tag;
+                currentRightClickFile = ExtractSingleIconToTemp(meta.SourceFile, meta.Index);
+                if (!string.IsNullOrEmpty(currentRightClickFile) && File.Exists(currentRightClickFile))
+                {
+                    iconContextMenu.Show(iconList, e.Location);
+                }
+            }
+        }
+
+        private void ExtractBtn_Click(object sender, EventArgs e)
+        {
+            string desktopDir = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
+            List<ListViewItem> targets = new List<ListViewItem>();
+
+            if (multiMode)
+            {
+                foreach (ListViewItem item in iconList.CheckedItems) targets.Add(item);
+            }
+            else
+            {
+                foreach (ListViewItem item in iconList.SelectedItems) targets.Add(item);
+            }
+
+            if (targets.Count == 0) return;
+
+            string sourcePath = ((IconMeta)targets[0].Tag).SourceFile;
+            string sourceName = Path.GetFileName(sourcePath);
+            this.Cursor = Cursors.WaitCursor;
+
+            if (targets.Count == 1)
+            {
+                int index = ((IconMeta)targets[0].Tag).Index;
+                string finalFile = Path.Combine(desktopDir, $"{sourceName}_IconGroup_{index}.ico");
+                EliteIconExtractor.SaveFullIconGroup(sourcePath, index, finalFile);
+
+                if (openFolderCheck.Checked)
+                {
+                    Process.Start("explorer.exe", $"/select,\"{finalFile}\"");
+                }
+            }
+            else
+            {
+                string targetDir = Path.Combine(desktopDir, sourceName);
+                if (!Directory.Exists(targetDir)) Directory.CreateDirectory(targetDir);
+
+                foreach (var item in targets)
+                {
+                    int index = ((IconMeta)item.Tag).Index;
+                    string finalFile = Path.Combine(targetDir, $"IconGroup_{index}.ico");
+                    EliteIconExtractor.SaveFullIconGroup(sourcePath, index, finalFile);
+                }
+
+                if (openFolderCheck.Checked)
+                {
+                    Process.Start(new ProcessStartInfo(targetDir) { UseShellExecute = true });
+                }
+            }
+            this.Cursor = Cursors.Default;
+        }
+    }
+}

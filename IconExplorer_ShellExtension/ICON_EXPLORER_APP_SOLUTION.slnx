@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="ICON_EXPLORER_APP/ICON_EXPLORER_APP.csproj" />
+  <Project Path="ICON_EXPLORER_ENGINE/ICON_EXPLORER_ENGINE.csproj" />
+  <Project Path="ICON_EXPLORER_SHELL_EXTENSION/ICON_EXPLORER_SHELL_EXTENSION.csproj" />
+</Solution>

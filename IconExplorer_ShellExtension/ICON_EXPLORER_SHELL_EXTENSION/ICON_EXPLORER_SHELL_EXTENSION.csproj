@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <LangVersion>latest</LangVersion>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
+
+    <!-- Professional Branding -->
+    <Company>EliteSoftwareTech Co.</Company>
+    <Authors>Zachary Whiteman</Authors>
+    <Copyright>© 2026 EliteSoftwareTech Co. (April 2026)</Copyright>
+    <Product>IconExplorer Shell Extension</Product>
+    <Description>High-performance Windows Shell Property Sheet extension. Bringing 2006 to 2026 one line of code at a time.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="SharpShell" Version="2.7.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ICON_EXPLORER_ENGINE\ICON_EXPLORER_ENGINE.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,44 @@
+# .gitignore for IconExplorer
+
+# Build Artifacts
+**/bin/
+**/obj/
+**/COMPLETE_BUILD/
+!**/COMPLETE_BUILD_INSTALLER/*.exe
+**/temp_build/
+**/conductor/
+
+
+# Backups (CRITICAL: Do not share these)
+**/Backups/
+*.cab
+*.zip
+
+# Visual Studio / IDE
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# System & Application Config
+**/IcoHolder_Config/
+*.log
+Thumbs.db
+desktop.ini
+
+# Installer generated files
+setup.inf
+setup.rpt
+backup.ddf
+CreateShortcut.ps1
+
+# Reference Tools & Internal Resources
+**/RELATED_TOOLS/
+**/APPLICATION_RESOURCES/
+**/TEST_ENVIRONMENT/
+*.bmp
+*.png
+*.ico
+!ICON_FOR_ICON_EXPLORER.ico
+!LOGO_FOR_ELITE_SOFTWARE.png

@@ -1,0 +1,268 @@
+#pragma warning disable CS8618, CS8600, CS8602, CS8622, CS8625
+using System;
+using System.Collections.Generic;
+using System.Drawing;
+using System.IO;
+using System.Reflection;
+using System.Windows.Forms;
+using IconExplorer.Engine;
+using System.Diagnostics;
+using System.Runtime.InteropServices;
+
+namespace IconExplorer.App
+{
+    public class MainForm : Form
+    {
+        [DllImport("uxtheme.dll", CharSet = CharSet.Unicode)]
+        public static extern int SetWindowTheme(IntPtr hWnd, string pszSubAppName, string pszSubIdList);
+
+        private Label pathLabel;
+        private TextBox pathBox;
+        private Button browseBtn;
+        private Label listLabel;
+        private Button multiSelectBtn;
+        private Button toggleBtn;
+        private ListView iconList;
+        private ImageList imageList;
+        private Button extractBtn;
+        private Button restoreSizeBtn;
+        private CheckBox openFolderCheck;
+        private Button okBtn;
+        private Button cancelBtn;
+
+        private ContextMenuStrip iconContextMenu;
+        private string currentRightClickFile = "";
+        
+        private bool showIDs = false;
+        private bool multiMode = false;
+        private int targetZoomSize = 64;
+        private System.Windows.Forms.Timer zoomTimer;
+        
+        private System.Windows.Forms.Timer asyncTimer;
+        private int extractIndex = 0;
+        private uint totalIcons = 0;
+        private string targetFile = "";
+        private List<Image> imageCache = new List<Image>();
+        private string tempDir;
+
+        private bool isPickMode = false;
+        private string initialFilePath = "";
+
+        public MainForm(string[] args = null)
+        {
+            if (args != null)
+            {
+                foreach (var arg in args)
+                {
+                    if (arg.Equals("-pick", StringComparison.OrdinalIgnoreCase))
+                        isPickMode = true;
+                    else if (File.Exists(arg))
+                        initialFilePath = arg;
+                }
+            }
+
+            InitializeComponent();
+            SetupTempDir();
+            SetupContextMenu();
+            SetupTimers();
+            
+            // Double buffering
+            PropertyInfo prop = typeof(Control).GetProperty("DoubleBuffered", BindingFlags.NonPublic | BindingFlags.Instance);
+            if (prop != null)
+                prop.SetValue(iconList, true, null);
+
+            this.Load += MainForm_Load;
+            this.MouseWheel += IconList_MouseWheel;
+        }
+
+        private void SetupTempDir()
+        {
+            tempDir = Path.Combine(Path.GetTempPath(), "EliteIconViewer");
+            if (!Directory.Exists(tempDir))
+            {
+                Directory.CreateDirectory(tempDir);
+            }
+        }
+
+        private void InitializeComponent()
+        {
+            this.Text = "Icon Viewer";
+            this.Size = new Size(540, 480);
+            this.StartPosition = FormStartPosition.CenterScreen;
+            this.KeyPreview = true;
+            this.MinimumSize = new Size(465, 340);
+            this.SizeGripStyle = SizeGripStyle.Show;
+
+            pathLabel = new Label { Text = "Look for icons in this file:", Location = new Point(10, 10), AutoSize = true };
+            
+            pathBox = new TextBox 
+            {
+                Location = new Point(10, 30),
+                Size = new Size(420, 20),
+                Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right,
+                Text = @"C:\Windows\System32\imageres.dll",
+                AutoCompleteMode = AutoCompleteMode.SuggestAppend,
+                AutoCompleteSource = AutoCompleteSource.FileSystem
+            };
+
+            browseBtn = new Button 
+            {
+                Text = "Browse...",
+                Location = new Point(440, 28),
+                Anchor = AnchorStyles.Top | AnchorStyles.Right
+            };
+
+            listLabel = new Label { Text = "Select an icon from the list below:", Location = new Point(10, 60), AutoSize = true };
+
+            multiSelectBtn = new Button 
+            {
+                Text = "Multi-Select: OFF",
+                Location = new Point(310, 55),
+                Size = new Size(120, 23),
+                Anchor = AnchorStyles.Top | AnchorStyles.Right
+            };
+
+            toggleBtn = new Button 
+            {
+                Text = "Toggle IDs",
+                Location = new Point(440, 55),
+                Size = new Size(75, 23),
+                Anchor = AnchorStyles.Top | AnchorStyles.Right
+            };
+
+            imageList = new ImageList 
+            {
+                ImageSize = new Size(64, 64),
+                ColorDepth = ColorDepth.Depth32Bit
+            };
+
+            iconList = new ListView 
+            {
+                Location = new Point(10, 85),
+                Size = new Size(505, 255),
+                Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right,
+                View = View.LargeIcon,
+                MultiSelect = false,
+                LargeImageList = imageList,
+                HideSelection = false
+            };
+
+            extractBtn = new Button 
+            {
+                Text = "Extract Selected",
+                Location = new Point(10, 350),
+                Size = new Size(110, 25),
+                Anchor = AnchorStyles.Bottom | AnchorStyles.Left
+            };
+
+            restoreSizeBtn = new Button 
+            {
+                Text = "Restore Size",
+                Location = new Point(130, 350),
+                Size = new Size(100, 25),
+                Anchor = AnchorStyles.Bottom | AnchorStyles.Left
+            };
+
+            openFolderCheck = new CheckBox 
+            {
+                Text = "Open folder after extract",
+                Location = new Point(12, 380),
+                AutoSize = true,
+                Checked = false,
+                Anchor = AnchorStyles.Bottom | AnchorStyles.Left
+            };
+
+            okBtn = new Button 
+            {
+                Text = "OK",
+                Location = new Point(350, 375),
+                Anchor = AnchorStyles.Bottom | AnchorStyles.Right
+            };
+
+            cancelBtn = new Button 
+            {
+                Text = "Cancel",
+                Location = new Point(440, 375),
+                Anchor = AnchorStyles.Bottom | AnchorStyles.Right
+            };
+
+            this.Controls.AddRange(new Control[] { 
+                pathLabel, pathBox, browseBtn, listLabel, multiSelectBtn, toggleBtn, 
+                iconList, extractBtn, restoreSizeBtn, openFolderCheck, okBtn, cancelBtn 
+            });
+
+            if (isPickMode)
+            {
+                extractBtn.Visible = false;
+                openFolderCheck.Visible = false;
+                multiSelectBtn.Visible = false;
+            }
+
+            browseBtn.Click += BrowseBtn_Click;
+            pathBox.KeyDown += PathBox_KeyDown;
+            multiSelectBtn.Click += MultiSelectBtn_Click;
+            toggleBtn.Click += ToggleBtn_Click;
+            restoreSizeBtn.Click += RestoreSizeBtn_Click;
+            extractBtn.Click += ExtractBtn_Click;
+            okBtn.Click += OkBtn_Click;
+            cancelBtn.Click += (s, e) => this.Close();
+            this.KeyDown += (s, e) => { if (e.KeyCode == Keys.Escape) this.Close(); };
+            
+            iconList.DoubleClick += IconList_DoubleClick;
+            iconList.MouseClick += IconList_MouseClick;
+        }
+
+        private void SetupContextMenu()
+        {
+            iconContextMenu = new ContextMenuStrip();
+            
+            var menuOpen = new ToolStripMenuItem("Open (Default Viewer)");
+            menuOpen.Click += (s, e) => {
+                if (File.Exists(currentRightClickFile))
+                    Process.Start(new ProcessStartInfo(currentRightClickFile) { UseShellExecute = true });
+            };
+            iconContextMenu.Items.Add(menuOpen);
+            iconContextMenu.Items.Add(new ToolStripSeparator());
+
+            var menuSendTo = new ToolStripMenuItem("Send To");
+            string sendToPath = Environment.GetFolderPath(Environment.SpecialFolder.SendTo);
+            if (Directory.Exists(sendToPath))
+            {
+                foreach (var item in Directory.GetFiles(sendToPath))
+                {
+                    string ext = Path.GetExtension(item).ToLower();
+                    if (ext == ".lnk" || ext == ".exe" || ext == ".bat" || ext == ".cmd")
+                    {
+                        var subItem = new ToolStripMenuItem(Path.GetFileNameWithoutExtension(item));
+                        subItem.Tag = item;
+                        subItem.Click += (s, e) => {
+                            string target = ((ToolStripMenuItem)s).Tag.ToString();
+                            Process.Start(new ProcessStartInfo("cmd.exe", $"/c start \"\" \"{target}\" \"{currentRightClickFile}\"" )
+                            { 
+                                WindowStyle = ProcessWindowStyle.Hidden,
+                                CreateNoWindow = true
+                            });
+                        };
+                        menuSendTo.DropDownItems.Add(subItem);
+                    }
+                }
+            }
+            iconContextMenu.Items.Add(menuSendTo);
+            iconContextMenu.Items.Add(new ToolStripSeparator());
+
+            var menuLoc = new ToolStripMenuItem("Show in Explorer");
+            menuLoc.Click += (s, e) => {
+                if (File.Exists(currentRightClickFile))
+                    Process.Start("explorer.exe", $"/select,\"{currentRightClickFile}\"");
+            };
+            iconContextMenu.Items.Add(menuLoc);
+        }
+
+        private void SetupTimers()
+        {
+            zoomTimer = new System.Windows.Forms.Timer { Interval = 250 };
+            zoomTimer.Tick += ZoomTimer_Tick;
+
+            asyncTimer = new System.Windows.Forms.Timer { Interval = 30 };
+            asyncTimer.Tick += AsyncTimer_Tick;
+        }
